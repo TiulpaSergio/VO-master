@@ -23,7 +23,7 @@ class VOApp:
         # Початкові значення параметрів
         self.initial_param1 = 500  # кількість ознак
         self.initial_param2 = 70   # кількість ітерацій
-        self.initial_param3 = 3    # поріг вхідних точок
+        self.initial_param3 = 5    # поріг вхідних точок
 
         # Константи для розміру вікна та рівня піраміди
         self.optical_flow_window_size = 5  # Константа розміру вікна для оптичного потоку
@@ -123,7 +123,6 @@ class VOApp:
         """
 
         visual_odometry.main(self.queue, folder_path, ground_truth, monocular_vo, param1, optical_flow_window_size, pyramid_level, param2, param3)
-        
         cv2.destroyAllWindows()
         
         gt_3d = np.array(ground_truth)

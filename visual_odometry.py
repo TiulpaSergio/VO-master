@@ -14,15 +14,15 @@ class VisualOdometry:
         Параметри:
         data_directory (str): Шлях до каталогу, що містить файли для калібрування, ground truth, IMU та зображення.
         """
-        self.intrinsic_matrix, self.projection_matrix = self._load_calibration(os.path.join(data_directory, "calib.txt"))
-        self.ground_truth_poses, self.imu_distances = self._load_ground_truth_and_imu(
+        self.intrinsic_matrix, self.projection_matrix = self.load_calibration(os.path.join(data_directory, "calib.txt"))
+        self.ground_truth_poses, self.imu_distances = self.load_ground_truth_and_imu(
             [os.path.join(data_directory, file) for file in os.listdir(data_directory) if file.startswith("ground_truth")],
             [os.path.join(data_directory, file) for file in os.listdir(data_directory) if file.startswith("imu")]
         )
-        self.image_sequences = self._load_images(os.path.join(data_directory, "images"))
+        self.image_sequences = self.load_images(os.path.join(data_directory, "images"))
 
     @staticmethod
-    def _load_calibration(filepath):
+    def load_calibration(filepath):
         """
         Завантажує калібрувальні параметри з вказаного файлу.
 
@@ -39,7 +39,7 @@ class VisualOdometry:
         return intrinsic_matrix, projection_matrix
 
     @staticmethod
-    def _load_ground_truth_and_imu(filepath, timestamp):
+    def load_ground_truth_and_imu(filepath, timestamp):
         """
         Завантажує дані про позу та відстані з файлів OptiTrak та IMU.
 
@@ -54,7 +54,7 @@ class VisualOdometry:
         return poses, distances
 
     @staticmethod
-    def _load_images(filepath):
+    def load_images(filepath):
         """
         Завантажує зображення з вказаного каталогу.
 
@@ -68,7 +68,7 @@ class VisualOdometry:
         return [cv2.imread(path) for path in image_paths]
 
     @staticmethod
-    def _create_transformation_matrix(R, t):
+    def create_transformation_matrix(R, t):
         """
         Створює матрицю трансформації на основі матриці обертання та вектора переміщення.
 
@@ -84,7 +84,7 @@ class VisualOdometry:
         transformation_matrix[:3, 3] = t
         return transformation_matrix
 
-    def get_feature_matches(self, index, step, num_features=200, window_size=5, pyramid_level=5, num_iterations=70, inlier_threshold=3):
+    def get_feature_matches(self, index, step, num_features=500, window_size=5, pyramid_level=5, num_iterations=70, inlier_threshold=5):
         """
         Знаходить відповідні точки між двома зображеннями за допомогою методу оптичного потоку Лукас-Канаде.
 
@@ -110,7 +110,7 @@ class VisualOdometry:
             inlier_threshold, 
         )
         image = self.image_sequences[index - step].copy()
-        self._plot_optical_flow(image, q1, q2, focus_of_expansion)
+        self.plot_optical_flow(image, q1, q2, focus_of_expansion)
         return q1, q2
 
     def compute_pose(self, q1, q2):
@@ -126,10 +126,10 @@ class VisualOdometry:
         tuple: Матриця обертання (R) та вектор переміщення (t).
         """
         essential_matrix, _ = cv2.findEssentialMat(q1, q2, self.intrinsic_matrix, method=0, threshold=0.1)
-        R, t = self._decompose_essential_matrix(essential_matrix, q1, q2)
+        R, t = self.decompose_essential_matrix(essential_matrix, q1, q2)
         return R, t
 
-    def _decompose_essential_matrix(self, essential_matrix, q1, q2):
+    def decompose_essential_matrix(self, essential_matrix, q1, q2):
         """
         Декомпозує есеціальну матрицю на матрицю обертання (R) та вектор переміщення (t),
         вибираючи найкращу комбінацію на основі кількості точок з позитивною координатою Z після триангуляції.
@@ -154,7 +154,7 @@ class VisualOdometry:
             Повертає:
             int: Загальна кількість точок з позитивною координатою Z після триангуляції.
             """
-            transformation_matrix = self._create_transformation_matrix(R, t)
+            transformation_matrix = self.create_transformation_matrix(R, t)
             projection_matrix = np.matmul(np.concatenate((self.intrinsic_matrix, np.zeros((3, 1))), axis=1), transformation_matrix)
             homogeneous_Q1 = cv2.triangulatePoints(np.float32(self.projection_matrix), np.float32(projection_matrix), np.float32(q1.T), np.float32(q2.T))
             homogeneous_Q2 = np.matmul(transformation_matrix, homogeneous_Q1)
@@ -178,7 +178,7 @@ class VisualOdometry:
 
         return best_R, best_t
 
-    def _plot_optical_flow(self, image, points1, points2, focus_of_expansion):
+    def plot_optical_flow(self, image, points1, points2, focus_of_expansion):
         """
         Візуалізує оптичний потік між двома наборами точок на зображенні у вигляді стрілок та фокусу розширення.
 
@@ -216,7 +216,7 @@ def main(queued_data, data_directory, gt_path_3d, estimated_path_3d, num_feature
     inlier_threshold (int): Поріг для верифікації інлайнів (за замовчуванням 3).
     is_static (bool): Прапорець для визначення, чи є сцена статичною (за замовчуванням False).
     """
-    # Ініціалізація об'єкта VisualOdometry
+
     vo = VisualOdometry(data_directory)
     imu_distances = vo.imu_distances
     ground_truth_poses = vo.ground_truth_poses
@@ -233,7 +233,6 @@ def main(queued_data, data_directory, gt_path_3d, estimated_path_3d, num_feature
     ground_truth_rotations = []
     current_pose = current_poses[0]
 
-    # Проходимо через усі кадри
     for i, gt_pose in zip(range(start_frame, len(current_poses) - end_frame, step), tqdm(current_poses, unit=" Frames", smoothing=0, disable=True)):
         shared_data = [i - start_frame, len(current_poses), 1]
         queued_data.put(shared_data)
@@ -243,7 +242,7 @@ def main(queued_data, data_directory, gt_path_3d, estimated_path_3d, num_feature
             q1, q2 = vo.get_feature_matches(i, step, num_features, window_size, pyramid_level, num_iterations, inlier_threshold)
             R, t = vo.compute_pose(q1, q2)
             t *= imu_distances[i]
-            transformation = vo._create_transformation_matrix(R, np.squeeze(t))
+            transformation = vo.create_transformation_matrix(R, np.squeeze(t))
             current_pose = np.matmul(current_pose, np.linalg.inv(transformation))
 
         # Зберігаємо обертання та пози

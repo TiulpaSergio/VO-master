@@ -26,8 +26,7 @@ def load_optitrak_data(filename, timestamps):
                                   time_stamp[8], time_stamp[9], time_stamp[10], time_stamp[11], time_stamp[12]))
             k += 1
     timestamp = np.array(timestamp, dtype=np.float64)
-    timestamp[:,-2] += 981  # Коригуємо координати (можливо, це зсув для зображення)
-
+    timestamp[:,-2] += 981  # Коригуємо координати 
     poses = []
     j = 0
     i = 0
